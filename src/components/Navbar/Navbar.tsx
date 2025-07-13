@@ -1,10 +1,10 @@
+import logo from "../../assets/logo.png";
+
 function Navbar() {
   return (
-    <nav className="text-white bg-black px-5">
+    <nav className="text-brand-primary font-bold bg-white px-5">
       <div className="sm:flex space-x-6 items-center my-3">
-        <h5>Home</h5>
-        <div className="flex-grow text-right">
-        </div>
+        <img src={logo} width={128} />
       </div>
     </nav>
   );
