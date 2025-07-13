@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import type { Message } from "./types/Message";
 import api from "./services/api";
@@ -15,6 +15,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState<boolean>();
   const [inputValue, setInputValue] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const sendWelcomeMessage = async () => {
@@ -25,8 +26,7 @@ function App() {
       try {
         const response = await api.post("welcome");
         const welcomeData: Message = response.data;
-        setConversationId("3fab5a9a-150d-4e8b-93fa-03b6a80054a1");
-        // setConversationId(welcomeData.id);
+        setConversationId(welcomeData.id);
         setMessages((prevMessages) => [...prevMessages, welcomeData]);
       } catch (error) {
         console.error("Error sending welcome message:", error);
@@ -39,10 +39,15 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
   const createMessage = (content: string, sender: Sender): Message => ({
     id: conversationId,
     content,
     sender,
+    isTyping: content === "" ? true : false,
   });
 
   const sendUserMessage = async (message: string) => {
@@ -55,11 +60,28 @@ function App() {
         ...prevMessages,
         createMessage(message, Sender.USER),
       ]);
-      // const response = await api.post("message", { content: message });
-      // const botMessage: Message = response.data;
-      // setMessages((prevMessages) => [...prevMessages, botMessage]);
+      // temporary message for a typing indicator
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        createMessage("", Sender.BOT),
+      ]);
+
+      const response = await api.post("flights/chat", {
+        id: conversationId,
+        content: message,
+      });
+      const botMessage: Message = response.data;
+
+      // once we get the actual response, remove typing indicator message from Message array
+      setMessages((prevMessages) =>
+        prevMessages
+          .slice(0, -1)
+          .concat([createMessage(botMessage.content, botMessage.sender)])
+      );
     } catch (error) {
       console.error("Error sending user message:", error);
+      // something went wrong, remove indicator
+      setMessages((prevMessages) => prevMessages.slice(0, -1));
     } finally {
       setLoading(false);
     }
@@ -67,7 +89,7 @@ function App() {
 
   return (
     <>
-      <div className="sm:w-10/12 lg:w-6/12 mx-auto py-7 flex-1 flex flex-col">
+      <div className="xl:w-6/12 w-8/12 mx-auto py-7 flex-1 flex flex-col">
         <div className="flex-1 flex flex-col bg-white rounded-2xl p-4">
           <div
             className={`flex-1 flex ${
@@ -105,14 +127,16 @@ function App() {
                   </div>
                 ))}
 
+                <div ref={messagesEndRef} />
+
                 {messages.filter((message) => message.sender === Sender.USER)
                   .length === 0 && (
-                  <div className="flex flex-row space-x-4">
+                  <div className="flex flex-col xl:flex-row xl:space-y-0 space-y-4 space-x-4">
                     {exampleTools.map((tool, index) => (
                       <button
                         key={index}
                         type="button"
-                        className="rounded-sm bg-brand-secondary hover:bg-brand-primary px-3 py-2 text-sm font-semibold text-white cursor-pointer"
+                        className="w-full xl:w-max rounded-sm bg-brand-secondary hover:bg-brand-primary px-3 py-2 text-sm font-semibold text-white cursor-pointer"
                         onClick={() => sendUserMessage(tool)}
                       >
                         {tool}
