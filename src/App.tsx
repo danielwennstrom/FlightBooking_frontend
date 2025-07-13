@@ -28,10 +28,10 @@ function App() {
         const welcomeData: Message = response.data;
         setConversationId(welcomeData.id);
         setMessages((prevMessages) => [...prevMessages, welcomeData]);
+
+        setLoading(false);
       } catch (error) {
         console.error("Error sending welcome message:", error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -100,7 +100,7 @@ function App() {
           >
             {loading && messages.length === 0 ? (
               <div className="flex flex-col items-center my-auto">
-                <div className="mr-3 size-20 border-4 border-gray-200 border-t-brand-primary rounded-full animate-spin" />
+                <div className="mr-3 size-20 border-4 border-brand-secondary border-t-brand-primary rounded-full animate-spin" />
               </div>
             ) : (
               <>
@@ -129,7 +129,7 @@ function App() {
 
                 <div ref={messagesEndRef} />
 
-                {messages.filter((message) => message.sender === Sender.USER)
+                {!loading && messages.filter((message) => message.sender === Sender.USER)
                   .length === 0 && (
                   <div className="flex flex-col sm:flex-row sm:space-y-0 space-y-4 space-x-4">
                     {exampleTools.map((tool, index) => (
