@@ -89,7 +89,7 @@ function App() {
 
   return (
     <>
-      <div className="xl:w-6/12 w-8/12 mx-auto py-7 flex-1 flex flex-col">
+      <div className="xl:w-6/12 md:w-8/12 w-10/12 mx-auto py-7 flex-1 flex flex-col">
         <div className="flex-1 flex flex-col bg-white rounded-2xl p-4">
           <div
             className={`flex-1 flex ${
@@ -131,7 +131,7 @@ function App() {
 
                 {messages.filter((message) => message.sender === Sender.USER)
                   .length === 0 && (
-                  <div className="flex flex-col xl:flex-row xl:space-y-0 space-y-4 space-x-4">
+                  <div className="flex flex-col sm:flex-row sm:space-y-0 space-y-4 space-x-4">
                     {exampleTools.map((tool, index) => (
                       <button
                         key={index}
