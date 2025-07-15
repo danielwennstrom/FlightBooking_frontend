@@ -1,4 +1,5 @@
 import { Sender } from "./Sender";
+import type { ToolResponse } from "./ToolResponse";
 
 export interface Message {
     id: string;
@@ -6,4 +7,5 @@ export interface Message {
     sender: Sender;
     timestamp?: Date;
     isTyping?: boolean;
+    toolResponses?: ToolResponse[];
 }
