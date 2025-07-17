@@ -100,7 +100,7 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
                 ? "text-gray-400 hover:bg-gray-100"
                 : "text-gray-900 hover:bg-blue-50"
             }
-            ${isSelected ? "bg-blue-500 text-white hover:bg-blue-600" : ""}
+            ${isSelected ? "bg-button-secondary text-white hover:bg-button-secondary-hover" : ""}
             ${isInRange && !isSelected ? "bg-blue-100 text-blue-900" : ""}
           `}
           onClick={() => handleDateClick(date)}

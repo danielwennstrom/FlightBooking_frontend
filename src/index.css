@@ -1,21 +1,54 @@
 @import "tailwindcss";
-
 @theme {
   --color-primary: #01498d;
-  --color-secondary: #3B82F6;
+  --color-secondary: #3b82f6;
 
-  --color-bot-bubble: #F8FAFC;
-  --color-user-bubble: #E5E7EB;
+  --color-background: #fafbfc;
+  --color-background-secondary: #f1f5f9;
+  --color-background-accent: #e8f4f8;
+
+  --color-bot-bubble: #f8fafc;
+  --color-bot-bubble-secondary: #e8f4f8;
+  --color-user-bubble: #01498d;
+  --color-user-bubble-hover: #0369a1;
+  --color-user-text: #ffffff;
+  --color-bot-text: #1e293b;
 
   --color-accent-primary: #01498d;
-  --color-accent-secondary: #3B82F6;
+  --color-accent-secondary: #0ea5e9;
+  --color-accent-tertiary: #06b6d4;
+  --color-accent-success: #10b981;
+  --color-accent-warning: #f59e0b;
 
-  --color-bubble-bot: #F8FAFC;
-  --color-bubble-user: #E5E7EB;
+  --color-button-primary: #01498d;
+  --color-button-primary-hover: #0369a1;
+  --color-button-secondary: #0ea5e9;
+  --color-button-secondary-hover: #0284c7;
 
   --color-brand-primary: #01498d;
-  --color-brand-secondary: #3B82F6;
+  --color-brand-secondary: #3b82f6;
+  --color-brand-accent: #0ea5e9;
 
-  --color-chat-bot: #F8FAFC;
-  --color-chat-user: #E5E7EB;
+  --color-chat-bot: #f8fafc;
+  --color-chat-user: #01498d;
+  --color-chat-border: #e2e8f0;
+  --color-chat-shadow: rgba(1, 73, 141, 0.1);
+
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-accent: #01498d;
+
+  --color-border: #e2e8f0;
+  --color-border-accent: #cbd5e1;
+  --color-divider: #f1f5f9;
+
+  --color-online: #10b981;
+  --color-offline: #6b7280;
+  --color-busy: #f59e0b;
+
+  --color-hover: rgba(1, 73, 141, 0.05);
+  --color-focus: rgba(1, 73, 141, 0.1);
+  --color-active: rgba(1, 73, 141, 0.15);
 }
+

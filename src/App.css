@@ -1,0 +1,15 @@
+@keyframes grow {
+  from {
+    opacity: 0;
+    transform: scaleY(0) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+.animate-grow {
+  animation: grow 0.3s ease-out;
+  transform-origin: top center;
+}
