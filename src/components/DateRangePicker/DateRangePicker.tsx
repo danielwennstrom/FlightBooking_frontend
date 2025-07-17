@@ -13,6 +13,7 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
   const [selectedEndDate, setSelectedEndDate] = useState<Date>(null);
   const [isSelectingRange, setIsSelectingRange] = useState(false);
   const datepickerRef = useRef<HTMLDivElement>(null);
+  const datepickerEndRef = useRef<HTMLDivElement>(null);
 
   const toggleDatepicker = () => {
     setIsOpen(!isOpen);
@@ -34,9 +35,12 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
     setIsSelectingRange(false);
   };
 
-  const handleApply = () => {
+  const handleConfirm = () => {
     if (selectedStartDate && selectedEndDate) {
-      onDateSelect({ startDate: selectedStartDate, endDate: selectedEndDate }, toolIndex);
+      onDateSelect(
+        { startDate: selectedStartDate, endDate: selectedEndDate },
+        toolIndex
+      );
     }
     setIsOpen(false);
   };
@@ -121,6 +125,10 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    datepickerEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [isOpen]);
+
   return (
     <div className="w-full max-w-sm mt-3" ref={datepickerRef}>
       <div className="relative">
@@ -160,11 +168,11 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
               <div className="flex items-center justify-between mb-4">
                 <button
                   className="rounded-md p-2 text-gray-600 hover:bg-gray-100"
-                  onClick={() =>
+                  onClick={() => {
                     setCurrentDate(
                       new Date(currentDate.setMonth(currentDate.getMonth() - 1))
-                    )
-                  }
+                    );
+                  }}
                 >
                   <svg
                     className="fill-current"
@@ -236,10 +244,11 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
                 </button>
                 <button
                   className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-                  onClick={handleApply}
+                  onClick={handleConfirm}
                 >
-                  Apply
+                  Confirm
                 </button>
+                <div ref={datepickerEndRef} />
               </div>
             </div>
           </div>
