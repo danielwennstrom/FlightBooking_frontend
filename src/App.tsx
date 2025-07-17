@@ -7,6 +7,8 @@ import type { ToolResponse } from "./types/ToolResponse";
 import DateRangePicker from "./components/DateRangePicker/DateRangePicker";
 import type { DateRange } from "./types/DateRange";
 import type { ToolResponseUpdate } from "./types/ToolResponseUpdate";
+import DestinationPicker from "./components/DestinationPicker/DestinationPicker";
+import type { Airport } from "./types/Airport";
 
 const examplePrompts: string[] = [
   "Book a flight",
@@ -22,6 +24,10 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [userToolResponseMessage, setUserToolResponseMessage] =
     useState<Message>();
+  const [airportSource, setAirportSource] = useState<Airport | null>(null);
+  const [airportDestination, setAirportDestination] = useState<Airport | null>(
+    null
+  );
 
   const useToolResponseHandler = () => {
     const submitCompletedToolResponse = async (toolResponse: ToolResponse) => {
@@ -240,6 +246,39 @@ function App() {
     });
   };
 
+  const handleAirportSource = (airport: Airport | null) => {
+    if (airport === null) return;
+    setAirportSource(airport);
+  };
+
+  const handleAirportDestination = (airport: Airport | null) => {
+    setAirportDestination(airport);
+  };
+
+  const handleAirportsSelect = (toolIndex: number) => {
+    if (!airportSource) {
+      console.log("Please select a departure airport.");
+      return;
+    }
+
+    const message = formatDestinationMessage(airportSource, airportDestination);
+
+    handleToolCompletion(toolIndex, message, null);
+  };
+
+  const formatDestinationMessage = (
+    airportSource: Airport,
+    airportDestination: Airport | null
+  ): string => {
+    if (airportSource && airportDestination) {
+      return `I am departing from ${airportSource.iataCode} and flying to ${airportDestination.iataCode}`;
+    } else if (airportSource) {
+      return `I am departing from ${airportSource.iataCode}`;
+    }
+
+    return "No airports have been selected. Please select a departure and destination airport.`";
+  };
+
   return (
     <>
       <div className="xl:w-6/12 md:w-8/12 w-10/12 mx-auto py-7 flex-1 flex flex-col">
@@ -261,10 +300,10 @@ function App() {
                   <div className="w-full flex flex-col">
                     <div
                       key={index}
-                      className={`bg-${
+                      className={`${
                         message.sender === Sender.USER
-                          ? "user-bubble text-user-text"
-                          : "bot-bubble text-bot-text"
+                          ? "bg-user-bubble text-user-text"
+                          : "bg-bot-bubble text-bot-text"
                       } p-3 rounded max-w-xs shadow-sm
                     ${
                       message.sender === Sender.USER ? "self-end" : "self-start"
@@ -277,19 +316,50 @@ function App() {
                         </div>
                       ) : (
                         <>
-                          {message.content}
+                          <div className="flex flex-col">
+                            {message.content}
 
-                          {message?.toolResponses?.map((tool, toolIndex) => (
-                            <div key={toolIndex} className="flex flex-col">
-                              {tool.type === "DATE_PICKER" &&
-                                !tool.isCompleted && (
-                                  <DateRangePicker
-                                    toolIndex={toolIndex}
-                                    onDateSelect={handleDateSelect}
-                                  />
-                                )}
-                            </div>
-                          ))}
+                            {message?.toolResponses?.map((tool, toolIndex) => (
+                              <div
+                                key={toolIndex}
+                                className="flex flex-col animate-grow"
+                              >
+                                {tool.type === "DATE_PICKER" &&
+                                  !tool.isCompleted && (
+                                    <DateRangePicker
+                                      toolIndex={toolIndex}
+                                      onDateSelect={handleDateSelect}
+                                    />
+                                  )}
+                                {tool.type === "DESTINATION_PICKER" &&
+                                  !tool.isCompleted && (
+                                    <div className="mt-4">
+                                      <DestinationPicker
+                                        subtitle="Departure from..."
+                                        onSelect={handleAirportSource}
+                                      />
+                                      <DestinationPicker
+                                        subtitle="To..."
+                                        onSelect={handleAirportDestination}
+                                      />
+                                      {airportSource && (
+                                        <div className="flex flex-col">
+                                          <button
+                                            type="button"
+                                            className="w-full xl:w-max rounded-sm bg-button-secondary hover:bg-button-secondary-hover px-3 py-2 text-sm font-semibold text-white cursor-pointer self-end"
+                                            onClick={() =>
+                                              handleAirportsSelect(toolIndex)
+                                            }
+                                          >
+                                            Confirm
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                              </div>
+                            ))}
+                          </div>
                         </>
                       )}
                     </div>

@@ -6,11 +6,11 @@ import Header from "./components/layout/Header.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <div className="h-svh flex flex-col bg-gray-100">
-      <div className="sticky top-0 bg-gray-100 z-50 pt-4">
+    <div className="h-svh flex flex-col bg-background-accent">
+      <div className="sticky top-0 bg-background-accent z-50 pt-4">
         <Header />
       </div>
-      <main className="flex-1 bg-bot-bubble flex flex-col">
+      <main className="flex-1 bg-background-secondary flex flex-col">
         <App />
       </main>
     </div>
