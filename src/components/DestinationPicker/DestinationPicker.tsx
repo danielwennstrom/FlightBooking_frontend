@@ -1,12 +1,10 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 
 import AsyncSelect from "react-select/async";
 import api from "../../services/api";
 import type { Airport } from "../../types/Airport";
 
 type Props = {
-  //   toolIndex: number;
-  //   onDateSelect: (range: DateRange, toolIndex) => void;
   subtitle: string;
   onSelect: (airport: Airport | null) => void;
 };

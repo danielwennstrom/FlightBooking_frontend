@@ -150,7 +150,7 @@ function App() {
       ]);
 
       // if there are any tool responses needed from the bot, create a user tool response message
-      if (botMessage.toolResponses?.length > 0) {
+      if ( botMessage.toolResponses !== undefined && botMessage.toolResponses?.length > 0) {
         const initializedToolResponses = initializeToolResponses(
           botMessage.toolResponses
         );
@@ -216,7 +216,7 @@ function App() {
   const handleToolCompletion = (
     toolIndex: number,
     message: string,
-    data?: any
+    data?: unknown
   ) => {
     updateToolResponse({
       toolIndex,
@@ -248,10 +248,7 @@ function App() {
   };
 
   const handleAirportsSelect = (toolIndex: number) => {
-    if (!airportSource) {
-      console.log("Please select a departure airport.");
-      return;
-    }
+    if (!airportSource) return;
 
     const message = formatDestinationMessage(airportSource, airportDestination);
 
@@ -263,9 +260,9 @@ function App() {
     airportDestination: Airport | null
   ): string => {
     if (airportSource && airportDestination) {
-      return `I am departing from ${airportSource.iataCode} and flying to ${airportDestination.iataCode}`;
+      return `I am departing from ${airportSource.iataCode} and flying to ${airportDestination.iataCode}.`;
     } else if (airportSource) {
-      return `I am departing from ${airportSource.iataCode}`;
+      return `I am departing from ${airportSource.iataCode}.`;
     }
 
     return "";

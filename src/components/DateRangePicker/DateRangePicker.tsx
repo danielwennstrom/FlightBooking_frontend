@@ -3,14 +3,14 @@ import type { DateRange } from "../../types/DateRange";
 
 type Props = {
   toolIndex: number;
-  onDateSelect: (range: DateRange, toolIndex) => void;
+  onDateSelect: (range: DateRange, toolIndex: number) => void;
 };
 
 const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedStartDate, setSelectedStartDate] = useState<Date>(null);
-  const [selectedEndDate, setSelectedEndDate] = useState<Date>(null);
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
   const [isSelectingRange, setIsSelectingRange] = useState(false);
   const datepickerRef = useRef<HTMLDivElement>(null);
   const datepickerEndRef = useRef<HTMLDivElement>(null);
@@ -45,13 +45,13 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
     setIsOpen(false);
   };
 
-  const handleDateClick = (date) => {
+  const handleDateClick = (date: Date) => {
     if (!isSelectingRange) {
       setSelectedStartDate(date);
       setSelectedEndDate(null);
       setIsSelectingRange(true);
     } else {
-      if (date < selectedStartDate) {
+      if (selectedStartDate !== null && date < selectedStartDate) {
         setSelectedStartDate(date);
         setSelectedEndDate(null);
       } else {
