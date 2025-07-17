@@ -31,25 +31,17 @@ function App() {
 
   const useToolResponseHandler = () => {
     const submitCompletedToolResponse = async (toolResponse: ToolResponse) => {
-      if (!toolResponse.isCompleted) return;
+      if (!toolResponse.isCompleted || !toolResponse.message) return;
 
       try {
-        const response = await api.post("flights/chat", {
-          id: conversationId,
-          content: toolResponse.message,
-          toolResponse: toolResponse,
-        });
+        const toolResps: ToolResponse[] = [toolResponse];
+        const userMessage = createMessage(
+          toolResponse.message,
+          Sender.USER,
+          toolResps
+        );
 
-        const botMessage: Message = response.data;
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          createMessage(
-            botMessage.content,
-            botMessage.sender,
-            botMessage.toolResponses
-          ),
-        ]);
-
+        sendUserMessage(userMessage);
         setUserToolResponseMessage(undefined);
       } catch (error) {
         console.error("Error submitting tool response:", error);
@@ -98,11 +90,11 @@ function App() {
 
   const formatDateMessage = (range: DateRange): string => {
     if (range.startDate && range.endDate) {
-      return `I am departing on ${range.startDate} and returning on ${range.endDate}`;
+      return `I am departing on ${range.startDate.toDateString()} and returning on ${range.endDate.toDateString()}.`;
     } else if (range.startDate) {
-      return `I am departing on ${range.startDate}`;
+      return `I am departing on ${range.startDate.toDateString()}.`;
     }
-    return "No dates have been selected";
+    return "";
   };
 
   const createMessage = (
@@ -276,7 +268,7 @@ function App() {
       return `I am departing from ${airportSource.iataCode}`;
     }
 
-    return "No airports have been selected. Please select a departure and destination airport.`";
+    return "";
   };
 
   return (
