@@ -132,7 +132,7 @@ function App() {
     setMessages((prevMessages) => [...prevMessages, typingMessage]);
 
     try {
-      const response = await api.post("flights/chat", {
+      const response = await api.post("/chat", {
         id: conversationId,
         content: userMessage.content,
       });
