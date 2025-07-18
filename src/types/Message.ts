@@ -8,4 +8,5 @@ export interface Message {
     timestamp?: Date;
     isTyping?: boolean;
     toolResponses?: ToolResponse[];
+    fullWidth?: boolean;
 }
