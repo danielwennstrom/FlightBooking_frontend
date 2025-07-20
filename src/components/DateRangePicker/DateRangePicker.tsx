@@ -42,6 +42,12 @@ const DateRangePicker = ({ onDateSelect, toolIndex }: Props) => {
         toolIndex
       );
     }
+    else {
+      onDateSelect(
+        { startDate: selectedStartDate, endDate: null },
+        toolIndex
+      );
+    }
     setIsOpen(false);
   };
 

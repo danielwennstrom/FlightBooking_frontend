@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "./App.css";
 import type { Message } from "./types/Message";
 import api from "./services/api";
@@ -9,6 +9,12 @@ import type { DateRange } from "./types/DateRange";
 import type { ToolResponseUpdate } from "./types/ToolResponseUpdate";
 import DestinationPicker from "./components/DestinationPicker/DestinationPicker";
 import type { Airport } from "./types/Airport";
+import FlightPicker from "./components/FlightPicker/FlightPicker";
+import type { Flight } from "./types/GoogleFlightsData/Flight";
+import type { FlightInfo } from "./types/FlightInfo";
+import type { GoogleFlightResponse } from "./types/GoogleFlightsData/GoogleFlightsResponse";
+import type { Itineraries } from "./types/GoogleFlightsData/Itineraries";
+import LoadingIndicator from "./components/LoadingIndicator";
 
 const examplePrompts: string[] = [
   "Book a flight",
@@ -24,10 +30,16 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [userToolResponseMessage, setUserToolResponseMessage] =
     useState<Message>();
+  const [flightInfo, setFlightInfo] = useState<FlightInfo | null>();
   const [airportSource, setAirportSource] = useState<Airport | null>(null);
   const [airportDestination, setAirportDestination] = useState<Airport | null>(
     null
   );
+  const [departureFlightItineraries, setDepartureFlightItineraries] =
+    useState<Itineraries>([]);
+  const [returnFlightList, setReturnFlightList] = useState<Flight[]>([]);
+  const [departureFlight, setDepartureFlight] = useState<Flight | null>(null);
+  const [returnFlight, setReturnFlight] = useState<Flight | null>(null);
 
   const useToolResponseHandler = () => {
     const submitCompletedToolResponse = async (toolResponse: ToolResponse) => {
@@ -100,13 +112,17 @@ function App() {
   const createMessage = (
     content: string,
     sender: Sender,
-    toolResps?: ToolResponse[]
+    toolResps?: ToolResponse[],
+    fullWidth?: boolean,
+    flightInfo?: FlightInfo
   ): Message => ({
     id: conversationId,
     content,
     sender,
     isTyping: content === "" && sender === Sender.BOT,
     toolResponses: toolResps || [],
+    fullWidth,
+    flightInfo,
   });
 
   const initializeToolResponses = (
@@ -145,18 +161,48 @@ function App() {
         createMessage(
           botMessage.content,
           botMessage.sender,
-          botMessage.toolResponses
+          botMessage.toolResponses,
+          botMessage.fullWidth
         ),
       ]);
 
+      console.log(messages);
+      // set flight info based on the current parsed flight info from the bot message
+      const botFlightData = botMessage.flightInfo;
+      console.log(botFlightData);
+      if (botFlightData) safeSetFlightInfo(botFlightData);
+
       // if there are any tool responses needed from the bot, create a user tool response message
-      if ( botMessage.toolResponses !== undefined && botMessage.toolResponses?.length > 0) {
+      if (
+        botMessage.toolResponses !== undefined &&
+        botMessage.toolResponses?.length > 0
+      ) {
         const initializedToolResponses = initializeToolResponses(
           botMessage.toolResponses
         );
         setUserToolResponseMessage(
           createMessage("", Sender.USER, initializedToolResponses)
         );
+
+        if (
+          botMessage.toolResponses.some(
+            (toolResponse) => toolResponse.type == "FLIGHT_PICKER"
+          )
+        ) {
+          setLoading(true);
+          try {
+            const departureItineraries = await getDepartureFlightList(
+              botFlightData
+            );
+            if (departureItineraries) {
+              setDepartureFlightItineraries(departureItineraries);
+              setLoading(false);
+            }
+          } catch (error) {
+            console.error("Error fetching itineraries:", error);
+            // remove typing indicator on error
+          }
+        }
       }
     } catch (error) {
       console.error("Error sending user message:", error);
@@ -165,6 +211,27 @@ function App() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const safeSetFlightInfo = (updates: Partial<FlightInfo>) => {
+    setFlightInfo((prev) => {
+      const baseFlightInfo = prev || {
+        departure: "",
+        destination: "",
+        departureDate: "",
+        returnDate: "",
+        passengers: 1,
+        cabinClass: "",
+        isRoundTrip: false,
+        departureFlight: undefined,
+        returnFlight: undefined,
+      };
+
+      return {
+        ...baseFlightInfo,
+        ...updates,
+      };
+    });
   };
 
   function updateToolResponses(
@@ -189,20 +256,22 @@ function App() {
   }
 
   // updates the user's message state but also the overall messages state for rendering purposes
-  const updateToolResponse = (update: ToolResponseUpdate) => {
-    const updatedMessages = [...messages];
-    const lastIndex = updatedMessages.length - 1;
+  const updateToolResponse = useCallback((update: ToolResponseUpdate) => {
+    setMessages((prevMessages) => {
+      const updatedMessages = [...prevMessages];
+      const lastIndex = updatedMessages.length - 1;
 
-    if (lastIndex >= 0) {
-      const botMessage = updatedMessages[lastIndex];
+      if (lastIndex >= 0) {
+        const botMessage = updatedMessages[lastIndex];
+        updatedMessages[lastIndex] = {
+          ...botMessage,
+          toolResponses: updateToolResponses(botMessage.toolResponses, update),
+        };
+      }
 
-      updatedMessages[lastIndex] = {
-        ...botMessage,
-        toolResponses: updateToolResponses(botMessage.toolResponses, update),
-      };
-    }
+      return updatedMessages;
+    });
 
-    setMessages(updatedMessages);
     setUserToolResponseMessage((prevMessage) => {
       if (!prevMessage?.toolResponses) return prevMessage;
 
@@ -211,31 +280,32 @@ function App() {
         toolResponses: updateToolResponses(prevMessage.toolResponses, update),
       };
     });
-  };
+  }, []);
 
-  const handleToolCompletion = (
-    toolIndex: number,
-    message: string,
-    data?: unknown
-  ) => {
-    updateToolResponse({
-      toolIndex,
-      isCompleted: true,
-      message,
-      data,
-    });
-  };
+  const handleToolCompletion = useCallback(
+    (toolIndex: number, message: string, data?: unknown) => {
+      updateToolResponse({
+        toolIndex,
+        isCompleted: true,
+        message,
+        data,
+      });
+    },
+    [updateToolResponse]
+  );
 
   const handleDateSelect = (range: DateRange, toolIndex: number) => {
-    const isCompleted = Boolean(range.startDate && range.endDate);
+    // const isCompleted = Boolean(range.startDate && range.endDate);
     const message = formatDateMessage(range);
+    console.log(range);
 
-    updateToolResponse({
-      toolIndex,
-      isCompleted,
-      message,
-      data: range,
-    });
+    // updateToolResponse({
+    //   toolIndex,
+    //   isCompleted: true,
+    //   message,
+    //   data: range,
+    // });
+    handleToolCompletion(toolIndex, message, null);
   };
 
   const handleAirportSource = (airport: Airport | null) => {
@@ -255,6 +325,35 @@ function App() {
     handleToolCompletion(toolIndex, message, null);
   };
 
+  const getDepartureFlightList = async (botFlightData: FlightInfo) => {
+    console.log(typeof botFlightData);
+    if (!botFlightData) {
+      console.error("FlightInfo is null or undefined");
+      return;
+    }
+    try {
+      console.log(botFlightData);
+      const response = await api.post("flights/search", botFlightData);
+      const data: Itineraries = response.data;
+      console.log(data);
+      return data;
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  const handleDepartureFlight = (flight: Flight) => {
+    if (!flight) return;
+    console.log("Departure flight selected:", flight);
+    safeSetFlightInfo({ departureFlight: flight });
+  };
+
+  const handleReturnFlight = (flight: Flight) => {
+    if (!flight) return;
+    console.log("Return flight selected:", flight);
+    safeSetFlightInfo({ returnFlight: flight });
+  };
+
   const formatDestinationMessage = (
     airportSource: Airport,
     airportDestination: Airport | null
@@ -268,21 +367,53 @@ function App() {
     return "";
   };
 
+  useEffect(() => {
+    const formatFlightsMessage = () => {
+      if (
+        flightInfo?.isRoundTrip &&
+        flightInfo?.departureFlight &&
+        flightInfo?.returnFlight
+      ) {
+        return `I want flight ${flightInfo.departureFlight.flights[0].flightNumber} for departure and flight ${flightInfo.returnFlight.flights[0].flightNumber} for return.`;
+      } else if (!flightInfo?.isRoundTrip && flightInfo?.departureFlight) {
+        return `I want flight ${flightInfo.departureFlight.flights[0].flightNumber} for my departure flight.`;
+      }
+      return "";
+    };
+
+    const isDepartureSelected = !!flightInfo?.departureFlight;
+    const isReturnSelected = !!flightInfo?.returnFlight;
+    const isRoundTrip = flightInfo?.isRoundTrip;
+
+    const isComplete =
+      (isDepartureSelected && !isRoundTrip) ||
+      (isDepartureSelected && isReturnSelected && isRoundTrip);
+
+    if (isComplete && userToolResponseMessage?.toolResponses) {
+      const toolIndex = userToolResponseMessage.toolResponses.findIndex(
+        (tool) => !tool.isCompleted && tool.type === "FLIGHT_PICKER"
+      );
+
+      if (toolIndex !== -1) {
+        const message = formatFlightsMessage();
+        handleToolCompletion(toolIndex, message, flightInfo);
+      }
+    }
+  }, [flightInfo, userToolResponseMessage, handleToolCompletion]);
+
   return (
     <>
-      <div className="xl:w-6/12 md:w-8/12 w-10/12 mx-auto py-7 flex-1 flex flex-col">
+      <div className="xl:w-6/12 w-10/12 mx-auto py-7 flex-1 flex flex-col">
         <div className="flex flex-1 flex-col bg-background rounded-2xl p-4 shadow-sm">
           <div
             className={`flex flex-1 ${
               messages.length > 1
                 ? "flex-col"
                 : "flex-col-reverse justify-end space-y-reverse"
-            } space-y-4 overflow-y-auto`}
+            } space-y-4`}
           >
             {loading && messages.length === 0 ? (
-              <div className="flex flex-col items-center my-auto">
-                <div className="mr-3 size-20 border-4 border-brand-secondary border-t-brand-primary rounded-full animate-spin" />
-              </div>
+              <LoadingIndicator />
             ) : (
               <>
                 {messages.map((message, index) => (
@@ -293,19 +424,19 @@ function App() {
                         message.sender === Sender.USER
                           ? "bg-user-bubble text-user-text"
                           : "bg-bot-bubble text-bot-text"
-                      } p-3 rounded max-w-xs shadow-sm
+                      } px-3 rounded shadow-md ${
+                        message.fullWidth ? "w-full" : "max-w-xs"
+                      }
                     ${
                       message.sender === Sender.USER ? "self-end" : "self-start"
                     }
                     `}
                     >
                       {message.isTyping ? (
-                        <div className="flex flex-col">
-                          <div className="mx-auto size-8 border-4 border-brand-secondary border-t-brand-primary rounded-full animate-spin" />
-                        </div>
+                        <LoadingIndicator />
                       ) : (
                         <>
-                          <div className="flex flex-col">
+                          <div className="flex flex-col py-4 px-2">
                             {message.content}
 
                             {message?.toolResponses?.map((tool, toolIndex) => (
@@ -346,6 +477,38 @@ function App() {
                                       )}
                                     </div>
                                   )}
+                                {tool.type === "FLIGHT_PICKER" &&
+                                  !tool.isCompleted && (
+                                    <>
+                                      {loading ||
+                                      !departureFlightItineraries ? (
+                                        <LoadingIndicator />
+                                      ) : (
+                                        <>
+                                          <FlightPicker
+                                            flightInfo={flightInfo}
+                                            headerTitle="Top flights"
+                                            flightList={
+                                              departureFlightItineraries.topFlights
+                                            }
+                                            onSelectDeparture={
+                                              handleDepartureFlight
+                                            }
+                                          />
+                                          <FlightPicker
+                                            flightInfo={flightInfo}
+                                            headerTitle="Other flights"
+                                            flightList={
+                                              departureFlightItineraries.otherFlights
+                                            }
+                                            onSelectDeparture={
+                                              handleDepartureFlight
+                                            }
+                                          />
+                                        </>
+                                      )}
+                                    </>
+                                  )}
                               </div>
                             ))}
                           </div>
@@ -355,12 +518,12 @@ function App() {
                   </div>
                 ))}
 
-                <div ref={messagesEndRef} />
+                {!userToolResponseMessage && <div ref={messagesEndRef} />}
 
                 {!loading &&
                   messages.filter((message) => message.sender === Sender.USER)
                     .length === 0 && (
-                    <div className="flex flex-col sm:flex-row sm:space-y-0 space-y-4 space-x-4">
+                    <div className="flex flex-col sm:flex-row sm:space-y-0 space-y-4 space-x-4 px-4">
                       {examplePrompts.map((prompt, index) => (
                         <button
                           key={index}

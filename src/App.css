@@ -13,3 +13,16 @@
   animation: grow 0.3s ease-out;
   transform-origin: top center;
 }
+
+@keyframes expand-width {
+  from {
+    max-width: 20rem;
+  }
+  to {
+    max-width: 100%;
+  }
+}
+
+.animate-expand {
+  animation: expand-width 2s ease-out forwards;
+}
