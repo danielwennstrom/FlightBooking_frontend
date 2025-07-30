@@ -140,10 +140,21 @@ function App() {
 
     setLoading(true);
 
+    // mark all previous incomplete tool responses as completed when user interrupts
+    setMessages((prevMessages) =>
+      prevMessages.map((msg) => ({
+        ...msg,
+        toolResponses: msg.toolResponses?.map((tool) => ({
+          ...tool,
+          isCompleted: true,
+        })),
+      }))
+    );
+
     setMessages((prevMessages) => [...prevMessages, userMessage]);
     console.log(userMessage);
 
-    // temporary message for a typing indicator
+    // temporary message for a loading indicator
     const typingMessage = createMessage("", Sender.BOT);
     setMessages((prevMessages) => [...prevMessages, typingMessage]);
 
@@ -155,7 +166,7 @@ function App() {
 
       const botMessage: Message = response.data;
 
-      // replace typing indicator message from Message array
+      // replace loading indicator message from Message array
       setMessages((prevMessages) => [
         ...prevMessages.slice(0, -1),
         createMessage(
@@ -167,6 +178,7 @@ function App() {
       ]);
 
       console.log(messages);
+
       // set flight info based on the current parsed flight info from the bot message
       const botFlightData = botMessage.flightInfo;
       console.log(botFlightData);
@@ -191,22 +203,25 @@ function App() {
         ) {
           setLoading(true);
           try {
-            const departureItineraries = await getDepartureFlightList(
-              botFlightData
-            );
-            if (departureItineraries) {
-              setDepartureFlightItineraries(departureItineraries);
-              setLoading(false);
+            if (botFlightData) {
+              const departureItineraries = await getDepartureFlightList(
+                botFlightData
+              );
+
+              if (departureItineraries) {
+                setDepartureFlightItineraries(departureItineraries);
+                setLoading(false);
+              }
             }
           } catch (error) {
             console.error("Error fetching itineraries:", error);
-            // remove typing indicator on error
+            // remove loading indicator on error
           }
         }
       }
     } catch (error) {
       console.error("Error sending user message:", error);
-      // remove typing indicator on error
+      // remove loading indicator on error
       setMessages((prevMessages) => prevMessages.slice(0, -1));
     } finally {
       setLoading(false);
@@ -295,16 +310,7 @@ function App() {
   );
 
   const handleDateSelect = (range: DateRange, toolIndex: number) => {
-    // const isCompleted = Boolean(range.startDate && range.endDate);
     const message = formatDateMessage(range);
-    console.log(range);
-
-    // updateToolResponse({
-    //   toolIndex,
-    //   isCompleted: true,
-    //   message,
-    //   data: range,
-    // });
     handleToolCompletion(toolIndex, message, null);
   };
 
@@ -344,7 +350,6 @@ function App() {
 
   const handleDepartureFlight = (flight: Flight) => {
     if (!flight) return;
-    console.log("Departure flight selected:", flight);
     safeSetFlightInfo({ departureFlight: flight });
   };
 
@@ -437,8 +442,9 @@ function App() {
                       ) : (
                         <>
                           <div className="flex flex-col py-4 px-2">
-                            {message.content}
-
+                            <div className="whitespace-pre-wrap">
+                              {message.content}
+                            </div>
                             {message?.toolResponses?.map((tool, toolIndex) => (
                               <div
                                 key={toolIndex}
