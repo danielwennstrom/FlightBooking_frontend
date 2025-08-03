@@ -36,7 +36,9 @@ function App() {
     null
   );
   const [departureFlightItineraries, setDepartureFlightItineraries] =
-    useState<Itineraries>([]);
+    useState<Itineraries | null>(null);
+  const [returnFlightItineraries, setReturnFlightItineraries] =
+    useState<Itineraries | null>(null);
   const [returnFlightList, setReturnFlightList] = useState<Flight[]>([]);
   const [departureFlight, setDepartureFlight] = useState<Flight | null>(null);
   const [returnFlight, setReturnFlight] = useState<Flight | null>(null);
@@ -52,7 +54,6 @@ function App() {
           Sender.USER,
           toolResps
         );
-
         sendUserMessage(userMessage);
         setUserToolResponseMessage(undefined);
       } catch (error) {
@@ -70,7 +71,6 @@ function App() {
       const completedTool = userToolResponseMessage.toolResponses.find(
         (tool) => tool.isCompleted
       );
-
       if (completedTool) {
         submitCompletedToolResponse(completedTool);
       }
@@ -152,7 +152,6 @@ function App() {
     );
 
     setMessages((prevMessages) => [...prevMessages, userMessage]);
-    console.log(userMessage);
 
     // temporary message for a loading indicator
     const typingMessage = createMessage("", Sender.BOT);
@@ -162,6 +161,7 @@ function App() {
       const response = await api.post("/chat", {
         id: conversationId,
         content: userMessage.content,
+        toolResponses: userMessage.toolResponses,
       });
 
       const botMessage: Message = response.data;
@@ -177,12 +177,10 @@ function App() {
         ),
       ]);
 
-      console.log(messages);
-
       // set flight info based on the current parsed flight info from the bot message
-      const botFlightData = botMessage.flightInfo;
-      console.log(botFlightData);
-      if (botFlightData) safeSetFlightInfo(botFlightData);
+      if (botMessage.flightInfo) {
+        safeSetFlightInfo(botMessage.flightInfo);
+      }
 
       // if there are any tool responses needed from the bot, create a user tool response message
       if (
@@ -195,33 +193,9 @@ function App() {
         setUserToolResponseMessage(
           createMessage("", Sender.USER, initializedToolResponses)
         );
-
-        if (
-          botMessage.toolResponses.some(
-            (toolResponse) => toolResponse.type == "FLIGHT_PICKER"
-          )
-        ) {
-          setLoading(true);
-          try {
-            if (botFlightData) {
-              const departureItineraries = await getDepartureFlightList(
-                botFlightData
-              );
-
-              if (departureItineraries) {
-                setDepartureFlightItineraries(departureItineraries);
-                setLoading(false);
-              }
-            }
-          } catch (error) {
-            console.error("Error fetching itineraries:", error);
-            // remove loading indicator on error
-          }
-        }
       }
     } catch (error) {
       console.error("Error sending user message:", error);
-      // remove loading indicator on error
       setMessages((prevMessages) => prevMessages.slice(0, -1));
     } finally {
       setLoading(false);
@@ -331,32 +305,123 @@ function App() {
     handleToolCompletion(toolIndex, message, null);
   };
 
-  const getDepartureFlightList = async (botFlightData: FlightInfo) => {
-    console.log(typeof botFlightData);
-    if (!botFlightData) {
-      console.error("FlightInfo is null or undefined");
-      return;
-    }
-    try {
-      console.log(botFlightData);
-      const response = await api.post("flights/search", botFlightData);
-      const data: Itineraries = response.data;
-      console.log(data);
-      return data;
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
+  useEffect(() => {
+    const fetchDepartureFlights = async () => {
+      if (!flightInfo) {
+        return;
+      }
+
+      if (departureFlightItineraries) {
+        return;
+      }
+
+      if (departureFlight) {
+        return;
+      }
+      if (!flightInfo || departureFlightItineraries || departureFlight) return;
+
+      const hasActiveFlightPicker =
+        userToolResponseMessage?.toolResponses?.some(
+          (tool) => tool.type === "FLIGHT_PICKER" && !tool.isCompleted
+        );
+
+      if (!hasActiveFlightPicker) return;
+
+      setLoading(true);
+      try {
+        const departureFlights = await getDepartureFlightList(flightInfo);
+        if (departureFlights) {
+          setDepartureFlightItineraries(departureFlights);
+          console.log(departureFlight);
+        }
+      } catch (error) {
+        console.error("Error fetching departure flights:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDepartureFlights();
+  }, [flightInfo, userToolResponseMessage]);
+
+  // effect for return flights, triggers when departure flight is selected
+  useEffect(() => {
+    const fetchReturnFlights = async () => {
+      if (
+        !departureFlight?.nextToken ||
+        !flightInfo?.isRoundTrip ||
+        returnFlightItineraries
+      )
+        return;
+
+      setLoading(true);
+      try {
+        const returnFlights = await getReturnFlightList(
+          departureFlight.nextToken
+        );
+        if (returnFlights) {
+          setReturnFlightItineraries(returnFlights);
+        }
+      } catch (error) {
+        console.error("Error fetching return flights:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReturnFlights();
+  }, [departureFlight, flightInfo?.isRoundTrip]);
 
   const handleDepartureFlight = (flight: Flight) => {
     if (!flight) return;
+
     safeSetFlightInfo({ departureFlight: flight });
+
+    if (userToolResponseMessage?.toolResponses?.[0]?.data) {
+      userToolResponseMessage.toolResponses[0].data.push(flight);
+    }
+
+    setDepartureFlight(flight);
   };
 
   const handleReturnFlight = (flight: Flight) => {
     if (!flight) return;
-    console.log("Return flight selected:", flight);
     safeSetFlightInfo({ returnFlight: flight });
+
+    if (userToolResponseMessage?.toolResponses?.[0]?.data) {
+      userToolResponseMessage.toolResponses[0].data.push(flight);
+    }
+
+    setReturnFlight(flight);
+  };
+
+  const getDepartureFlightList = async (
+    flightData: FlightInfo
+  ): Promise<Itineraries | null> => {
+    try {
+      const response = await api.post("flights/search", flightData);
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching departure flights:", error);
+      throw error;
+    }
+  };
+
+  const getReturnFlightList = async (
+    nextToken: string
+  ): Promise<Itineraries | null> => {
+    if (!nextToken) {
+      console.error("nextToken is required");
+      return null;
+    }
+
+    try {
+      const response = await api.post("flights/searchNext", { nextToken });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching return flights:", error);
+      throw error;
+    }
   };
 
   const formatDestinationMessage = (
@@ -376,18 +441,18 @@ function App() {
     const formatFlightsMessage = () => {
       if (
         flightInfo?.isRoundTrip &&
-        flightInfo?.departureFlight &&
-        flightInfo?.returnFlight
+        departureFlight &&
+        returnFlight
       ) {
-        return `I want flight ${flightInfo.departureFlight.flights[0].flightNumber} for departure and flight ${flightInfo.returnFlight.flights[0].flightNumber} for return.`;
-      } else if (!flightInfo?.isRoundTrip && flightInfo?.departureFlight) {
-        return `I want flight ${flightInfo.departureFlight.flights[0].flightNumber} for my departure flight.`;
+        return `I want flight ${departureFlight.flights[0].flightNumber} for departure and flight ${returnFlight.flights[0].flightNumber} for return.`;
+      } else if (!flightInfo?.isRoundTrip && departureFlight) {
+        return `I want flight ${departureFlight.flights[0].flightNumber} for my departure flight.`;
       }
       return "";
     };
 
-    const isDepartureSelected = !!flightInfo?.departureFlight;
-    const isReturnSelected = !!flightInfo?.returnFlight;
+    const isDepartureSelected = !!departureFlight;
+    const isReturnSelected = !!returnFlight;
     const isRoundTrip = flightInfo?.isRoundTrip;
 
     const isComplete =
@@ -399,12 +464,75 @@ function App() {
         (tool) => !tool.isCompleted && tool.type === "FLIGHT_PICKER"
       );
 
-      if (toolIndex !== -1) {
-        const message = formatFlightsMessage();
-        handleToolCompletion(toolIndex, message, flightInfo);
+      if (toolIndex === -1) {
+        return;
       }
+
+      const message = formatFlightsMessage();
+      const flights: Flight[] = [departureFlight, returnFlight].filter(
+        (flight): flight is Flight => flight != null
+      );
+
+      console.log("Completing flight selection with:", flights);
+      handleToolCompletion(toolIndex, message, flights);
     }
-  }, [flightInfo, userToolResponseMessage, handleToolCompletion]);
+  }, [
+    flightInfo,
+    userToolResponseMessage,
+    handleToolCompletion,
+    departureFlight,
+    returnFlight,
+  ]);
+
+  const renderFlightPickers = (tool: ToolResponse) => {
+    if (tool.type !== "FLIGHT_PICKER" || tool.isCompleted) return null;
+
+    if (loading || !departureFlightItineraries) {
+      return <LoadingIndicator />;
+    }
+
+    if (!departureFlight) {
+      return (
+        <>
+          <FlightPicker
+            flightInfo={flightInfo}
+            headerTitle="Top departure flights"
+            flightList={departureFlightItineraries.topFlights}
+            onSelectDeparture={handleDepartureFlight}
+          />
+          <FlightPicker
+            flightInfo={flightInfo}
+            headerTitle="Other departure flights"
+            flightList={departureFlightItineraries.otherFlights}
+            onSelectDeparture={handleDepartureFlight}
+          />
+        </>
+      );
+    }
+
+    if (loading || !returnFlightItineraries) {
+      return <LoadingIndicator />;
+    }
+
+    return (
+      <>
+        <FlightPicker
+          flightInfo={flightInfo}
+          headerTitle="Top return flights"
+          flightList={returnFlightItineraries.topFlights}
+          isReturn={true}
+          onSelectReturn={handleReturnFlight}
+        />
+        <FlightPicker
+          flightInfo={flightInfo}
+          headerTitle="Other return flights"
+          flightList={returnFlightItineraries.otherFlights}
+          isReturn={true}
+          onSelectReturn={handleReturnFlight}
+        />
+      </>
+    );
+  };
 
   return (
     <>
@@ -450,6 +578,9 @@ function App() {
                                 key={toolIndex}
                                 className="flex flex-col animate-grow"
                               >
+                                {userToolResponseMessage && (
+                                  <div ref={messagesEndRef} />
+                                )}
                                 {tool.type === "DATE_PICKER" &&
                                   !tool.isCompleted && (
                                     <DateRangePicker
@@ -483,38 +614,7 @@ function App() {
                                       )}
                                     </div>
                                   )}
-                                {tool.type === "FLIGHT_PICKER" &&
-                                  !tool.isCompleted && (
-                                    <>
-                                      {loading ||
-                                      !departureFlightItineraries ? (
-                                        <LoadingIndicator />
-                                      ) : (
-                                        <>
-                                          <FlightPicker
-                                            flightInfo={flightInfo}
-                                            headerTitle="Top flights"
-                                            flightList={
-                                              departureFlightItineraries.topFlights
-                                            }
-                                            onSelectDeparture={
-                                              handleDepartureFlight
-                                            }
-                                          />
-                                          <FlightPicker
-                                            flightInfo={flightInfo}
-                                            headerTitle="Other flights"
-                                            flightList={
-                                              departureFlightItineraries.otherFlights
-                                            }
-                                            onSelectDeparture={
-                                              handleDepartureFlight
-                                            }
-                                          />
-                                        </>
-                                      )}
-                                    </>
-                                  )}
+                                {renderFlightPickers(tool)}
                               </div>
                             ))}
                           </div>

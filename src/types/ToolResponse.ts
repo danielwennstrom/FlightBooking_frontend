@@ -1,8 +1,8 @@
-import type { FlightInfo } from "./FlightInfo";
+import type { Flight } from "./GoogleFlightsData/Flight";
 
 export interface ToolResponse {
     type?: string;
     message?: string | null;
-    data?: FlightInfo;
+    data?: Flight[];
     isCompleted?: boolean;
 }
